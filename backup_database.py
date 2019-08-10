@@ -4,15 +4,17 @@ import subprocess
 import zipfile
 import shutil
 from decouple import config
+import boto3
 
 
 class Backup(object):
     def __init__(self):
         self.path_base = config('path_backup')
-        self.prefix = config('prefix_bkp', default='backup')
-        self.now = datetime.now()
-        backup = f"{self.prefix}_{self.now.day}-{self.now.month}-{self.now.year}_" \
-                 f"{self.now.hour}-{self.now.minute}"
+        prefix = config('prefix_backup')
+        strftime = config('format_date')
+        now = datetime.now()
+        now = now.strftime(strftime)
+        backup = f"{prefix}_{now}"
         self.folder = os.path.join(self.path_base, backup)
         self.bucket = config('bucket_storage')
 
@@ -30,9 +32,10 @@ class Backup(object):
         user = config('user_database', default=False)
         pwd = config('pwd_database', default=False)
         db_auth = config('db_auth', default=False)
+        port = config('port')
 
         if db_auth and user and pwd:
-            cmd = f"mongodump --host {url}:27017 -u {user} -p '{pwd}' --authenticationDatabase {db_auth}" \
+            cmd = f"mongodump --host {url}:{port} -u {user} -p '{pwd}' --authenticationDatabase {db_auth}" \
                   f" -o {self.folder}"
         else:
             cmd = f"mongodump -o {self.folder}"
@@ -71,13 +74,8 @@ class Backup(object):
 
     def upload_s3(self, zip_file):
 
-        cmd = f'aws s3 cp {zip_file} s3://{self.bucket}'
-        try:
-            cod = subprocess.call(cmd, shell=True)
-
-            if cod == 0:
-                os.remove(zip_file)
-            return True
-        except:
-
-            return False
+        s3 = boto3.resource('s3')
+        backup = os.path.split(zip_file)
+        backup = backup[-1]
+        resp_upload = s3.meta.client.upload_file(zip_file, self.bucket, backup)
+        return resp_upload
