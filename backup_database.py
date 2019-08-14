@@ -43,11 +43,12 @@ class Backup(object):
         try:
             os.mkdir(self.folder)
             subprocess.call(cmd, shell=True)
-
             return True
 
         except FileExistsError:
            raise FileExistsError
+        except Exception as e:
+            raise e
 
     def zip_folder(self):
         try:
@@ -63,7 +64,7 @@ class Backup(object):
             return zip_file
 
         except Exception as e:
-           return False
+            raise e
 
     def remove_folder(self):
         try:
